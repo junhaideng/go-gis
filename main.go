@@ -41,6 +41,12 @@ func usage() {
 func main() {
 	now := time.Now()
 	flag.Parse()
+	
+	_, err := os.Stat(upload)
+	if os.IsNotExist(err){
+		fmt.Printf("上传目录 %s 不存在\n", upload)
+		return
+	}
 
 	filepath.Walk(upload, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
