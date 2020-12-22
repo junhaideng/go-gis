@@ -2,19 +2,47 @@
 > 使用Go实现，除此之外还有[Python版本](https://git.io/Jvrbv)的，但是该实现更快
 
 ### 如何使用
-- [x] : 指定你的上传目录夹
-- [x] : 执行 `go run main.go`(使用`-h`参数可以查看其他设置和帮助)
 
+下载
+
+```bash
+go get -u github.com/junhaideng/go-gis
 ```
-OPTIONS:
-  -download string
-        which directory you want to save the images (default "download")
-  -mirror
-        use the mirror website or not (default true)
-  -retry int
-        retry times to search the failed file (default 66)
-  -sleep duration
-        sleep to avoid high rate request (default 2s)
-  -upload string
-        which directory you want to upload images (default "upload")
+
+
+
+```go
+package main 
+
+import (
+    gis "github.com/junhaideng/go-gis"
+    "net/http"
+    "log"
+    "os"
+)
+
+func newSearcher() *gis.Searcher{
+	var client = http.Client{}
+	searcher := gis.NewSearcher(client)
+	// 设置上传目录
+	searcher.SetUploadPath("../upload")
+	// 设置图片保存目录
+	searcher.SetDownloadPath("download")
+	// 设置最大重试次数
+	searcher.SetMaxRetryTimes(66)
+	// 配置日志
+	f, _ := os.Create("gis.log")
+	l := log.New(f, "", log.LstdFlags)
+	l.SetOutput(f)
+	searcher.SetLogger(l)
+
+	return searcher
+}
+
+func main(){
+    var searcher  = newSearcher()
+    // 运行搜索程序
+    searcher.Run()
+}
+
 ```
