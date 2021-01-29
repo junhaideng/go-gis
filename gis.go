@@ -100,11 +100,11 @@ func (s *Searcher) buildRequest(image string) (*http.Request, error) {
 	defer f.Close()
 
 	// 将图片数据写入w中
-	if _, err := io.Copy(w, f); err != nil{
+	if _, err := io.Copy(w, f); err != nil {
 		return nil, err
 	}
 
-	var url = "https://images.hk.53yu.com/searchbyimage/upload"
+	var url = "https://images.soik.top/searchbyimage/upload"
 
 	if !s.mirror {
 		url = "https://www.google.com/searchbyimage/upload"
@@ -121,7 +121,7 @@ func (s *Searcher) buildRequest(image string) (*http.Request, error) {
 
 	// 根据条件设置头部
 	if s.mirror {
-		req.Header.Set("Host", "images.hk.53yu.com")
+		req.Header.Set("Host", "images.soik.top")
 	} else {
 		req.Header.Set("Host", "www.google.com")
 	}
@@ -180,26 +180,26 @@ func (s *Searcher) SetDownloadPath(download string) {
 	s.download = download
 }
 
-func (s *Searcher) SetUploadPath(upload string)  {
-	if !s.exist(upload){
+func (s *Searcher) SetUploadPath(upload string) {
+	if !s.exist(upload) {
 		fmt.Println("no such path: ", upload)
 		os.Exit(-1)
 	}
-	if runtime.GOOS == "windows"{
+	if runtime.GOOS == "windows" {
 		upload = strings.ReplaceAll(upload, "/", string(os.PathSeparator))
 	}
 	s.upload = upload
 }
 
 func (s *Searcher) SetUserAgents(agents []string) {
-	if len(agents) == 0{
+	if len(agents) == 0 {
 		fmt.Println("User-Agent must have one element")
 		os.Exit(-1)
 	}
 	s.userAgents = agents
 }
 
-func (s *Searcher) SetLogger(log *log.Logger){
+func (s *Searcher) SetLogger(log *log.Logger) {
 	s.log = log
 }
 
@@ -212,9 +212,9 @@ func (s *Searcher) walkFunc(path string, info os.FileInfo, err error) error {
 			var imagesData [][]byte
 			counter := 0
 
-			for counter < s.maxRetryTimes{
-				time.Sleep(time.Microsecond*time.Duration(rand.Int31n(20)))
-				counter ++
+			for counter < s.maxRetryTimes {
+				time.Sleep(time.Microsecond * time.Duration(rand.Int31n(20)))
+				counter++
 				fmt.Printf("第 %d 次尝试上传图片 %s \n", counter, info.Name())
 				req, er := s.buildRequest(path)
 				if er != nil {
@@ -230,11 +230,11 @@ func (s *Searcher) walkFunc(path string, info os.FileInfo, err error) error {
 				if er != nil {
 					continue
 				}
-				if len(imagesData) != 0{
+				if len(imagesData) != 0 {
 					break
 				}
 			}
-			if counter >= s.maxRetryTimes{
+			if counter >= s.maxRetryTimes {
 				s.log.Println("max retry times to upload file ", path)
 				return
 			}
@@ -247,8 +247,8 @@ func (s *Searcher) walkFunc(path string, info os.FileInfo, err error) error {
 				dir := filepath.Join(filepath.Dir(path), strings.TrimSuffix(filename, filepath.Ext(filename)))
 				// 下载图片所在目录
 				dir = strings.Replace(dir, s.upload, s.download, 1)
-				if !s.exist(dir){
-					if er := os.MkdirAll(dir, 0666); er != nil{
+				if !s.exist(dir) {
+					if er := os.MkdirAll(dir, 0666); er != nil {
 						s.log.Fatalf("create path %s error: %s", dir, er.Error())
 						return
 					}
@@ -269,10 +269,9 @@ func (s *Searcher) Run() {
 	fmt.Printf("Total time: %d s\n", time.Since(start)/time.Second)
 }
 
-
-func (s Searcher) exist(path string)bool{
+func (s Searcher) exist(path string) bool {
 	_, err := os.Stat(path)
-	if errors.Is(err, os.ErrNotExist){
+	if errors.Is(err, os.ErrNotExist) {
 		return false
 	}
 	return true
