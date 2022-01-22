@@ -1,8 +1,6 @@
-package gis 
+package gis
 
-
-type image struct{
-	typ string 
-	data []byte 
+type image struct {
+	typ  string
+	data []byte
 }
-

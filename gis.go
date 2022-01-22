@@ -48,7 +48,6 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-
 type Searcher struct {
 	maxRetryTimes int          // 最大尝试次数
 	url           *url.URL     // 镜像地址
@@ -62,7 +61,7 @@ type Searcher struct {
 func NewSearcher(options ...Option) *Searcher {
 
 	s := &Searcher{
-		0, DEFAULT_URL, nil, nil, DEFUALT_USER_AGENTS, DEFUALT_UPLOAD_PATH, DEFUALT_DOWNLOAD_PATH,
+		3, DEFAULT_URL, nil, nil, DEFUALT_USER_AGENTS, DEFUALT_UPLOAD_PATH, DEFUALT_DOWNLOAD_PATH,
 	}
 
 	for _, option := range options {

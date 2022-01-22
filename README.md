@@ -3,12 +3,13 @@
 
 ### 如何使用
 
-下载
+下载包使用
 
 ```bash
 go get -u github.com/junhaideng/go-gis
 ```
 
+可以直接运行下面的代码，也可以运行 `go run cmd/main.go`
 ```go
 package main
 
@@ -29,6 +30,7 @@ func newSearcher() *gis.Searcher {
 		gis.WithUpload("upload"),
 		gis.WithDownload("download"),
 		gis.WithLogger(l),
+    // 镜像网址
 		gis.WithURL("https://shitu.paodekuaiweixinqun.com/searchbyimage/upload"),
 		gis.WithMaxRetryTimes(10),
 	}
@@ -43,3 +45,7 @@ func main() {
 	searcher.Run()
 }
 ```
+
+## 效果
+
+<img src="images/demo.gif" width=500>

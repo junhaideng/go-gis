@@ -1,3 +1,6 @@
 upload/
 download/
 *.log
+*.exe
+gis_linux
+gis_mac
