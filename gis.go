@@ -11,10 +11,10 @@ import (
 	"math/rand"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -37,27 +37,47 @@ var DEFUALT_USER_AGENTS = []string{
 	`Mozilla/5.0 (X11; CrOS armv7l 9592.96.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.114 Safari/537.36`,
 }
 
+var DEFAULT_URL = &url.URL{
+	Scheme: "https",
+	Host:   "www.google.com",
+	Path:   "/searchbyimage/upload",
+}
+
 func init() {
 	// 设置随机数种子
 	rand.Seed(time.Now().UnixNano())
 }
 
 type Searcher struct {
-	maxRetryTimes int         // 最大尝试次数
-	mirror        bool        // 是否使用镜像
-	log           *log.Logger // 日志
-	client        http.Client // 请求客户端
-	userAgents    []string    // 请求头部中的用户代理
-	upload        string      // 上传图片路径
-	download      string      // 下载图片所在路径
+	maxRetryTimes int          // 最大尝试次数
+	url           *url.URL     // 镜像地址
+	log           *log.Logger  // 日志
+	client        *http.Client // 请求客户端
+	userAgents    []string     // 请求头部中的用户代理
+	upload        string       // 上传图片路径
+	download      string       // 下载图片所在路径
 }
 
-func NewSearcher(client http.Client) *Searcher {
-	var l = &log.Logger{}
-	l.SetOutput(os.Stdout)
-	return &Searcher{
-		10, true, l, client, DEFUALT_USER_AGENTS, DEFUALT_UPLOAD_PATH, DEFUALT_DOWNLOAD_PATH,
+func NewSearcher(options ...Option) *Searcher {
+
+	s := &Searcher{
+		0, DEFAULT_URL, nil, nil, DEFUALT_USER_AGENTS, DEFUALT_UPLOAD_PATH, DEFUALT_DOWNLOAD_PATH,
 	}
+
+	for _, option := range options {
+		option.apply(s)
+	}
+
+	// 惰性初始化，避免 options 中设置了
+	if s.client == nil {
+		s.client = &http.Client{}
+	}
+	if s.log == nil {
+		l := &log.Logger{}
+		s.log = l
+	}
+	return s
+
 }
 
 // 发送请求
@@ -104,27 +124,18 @@ func (s *Searcher) buildRequest(image string) (*http.Request, error) {
 		return nil, err
 	}
 
-	var url = "https://images.soik.top/searchbyimage/upload"
-
-	if !s.mirror {
-		url = "https://www.google.com/searchbyimage/upload"
-	}
-
 	if err := writer.Close(); err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", url, &buff)
+	req, err := http.NewRequest("POST", s.url.String(), &buff)
 	if err != nil {
 		return nil, err
 	}
 
-	// 根据条件设置头部
-	if s.mirror {
-		req.Header.Set("Host", "images.soik.top")
-	} else {
-		req.Header.Set("Host", "www.google.com")
-	}
+	req.Header.Set("Host", s.url.Host)
+	req.Header.Set("Origin", s.url.String())
+
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	req.Header.Set("User-Agent", s.userAgents[rand.Intn(len(s.userAgents))])
 
@@ -165,44 +176,6 @@ func (s *Searcher) decodeBase64(data []byte, filename string, wg *sync.WaitGroup
 	return nil
 }
 
-func (s *Searcher) SetMirror(flag bool) {
-	s.mirror = flag
-}
-
-func (s *Searcher) SetMaxRetryTimes(times int) {
-	if times <= 0 {
-		s.maxRetryTimes = 0
-	}
-	s.maxRetryTimes = times
-}
-
-func (s *Searcher) SetDownloadPath(download string) {
-	s.download = download
-}
-
-func (s *Searcher) SetUploadPath(upload string) {
-	if !s.exist(upload) {
-		fmt.Println("no such path: ", upload)
-		os.Exit(-1)
-	}
-	if runtime.GOOS == "windows" {
-		upload = strings.ReplaceAll(upload, "/", string(os.PathSeparator))
-	}
-	s.upload = upload
-}
-
-func (s *Searcher) SetUserAgents(agents []string) {
-	if len(agents) == 0 {
-		fmt.Println("User-Agent must have one element")
-		os.Exit(-1)
-	}
-	s.userAgents = agents
-}
-
-func (s *Searcher) SetLogger(log *log.Logger) {
-	s.log = log
-}
-
 func (s *Searcher) walkFunc(path string, info os.FileInfo, err error) error {
 	if !info.IsDir() {
 		wg.Add(1)
@@ -212,7 +185,7 @@ func (s *Searcher) walkFunc(path string, info os.FileInfo, err error) error {
 			var imagesData [][]byte
 			counter := 0
 
-			for counter < s.maxRetryTimes {
+			for counter <= s.maxRetryTimes {
 				time.Sleep(time.Microsecond * time.Duration(rand.Int31n(20)))
 				counter++
 				fmt.Printf("第 %d 次尝试上传图片 %s \n", counter, info.Name())
@@ -271,8 +244,5 @@ func (s *Searcher) Run() {
 
 func (s Searcher) exist(path string) bool {
 	_, err := os.Stat(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return false
-	}
-	return true
+	return !errors.Is(err, os.ErrNotExist)
 }

@@ -1,0 +1,15 @@
+name: gis
+
+on: [push, pull_request]
+
+jobs:
+  test: 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: "^1.17" 
+      - name: setup
+        run: mkdir upload && wget -O upload/github.png "https://avatars.githubusercontent.com/u/9919?s=200&v=4"
+      - run: go run cmd/main.go
