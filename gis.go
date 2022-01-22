@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-var pattern = regexp.MustCompile(`data:image/jpeg;base64,(.*?)';`)
+var pattern = regexp.MustCompile(`data:image/(.*?);base64,(.*?)';`)
 var wg sync.WaitGroup
 
 const DEFUALT_DOWNLOAD_PATH = "download"
@@ -47,6 +47,7 @@ func init() {
 	// 设置随机数种子
 	rand.Seed(time.Now().UnixNano())
 }
+
 
 type Searcher struct {
 	maxRetryTimes int          // 最大尝试次数
@@ -143,11 +144,11 @@ func (s *Searcher) buildRequest(image string) (*http.Request, error) {
 }
 
 // 从网页中获取到相关图片的base64编码数据
-func (s *Searcher) getBase64ImageData(html []byte) ([][]byte, error) {
+func (s *Searcher) getBase64ImageData(html []byte) ([]image, error) {
 	data := pattern.FindAllSubmatch(html, -1)
-	var temp = make([][]byte, 0)
+	var temp = make([]image, 0)
 	for _, value := range data {
-		temp = append(temp, value[1])
+		temp = append(temp, image{typ: string(value[1]), data: value[2]})
 	}
 	if len(temp) == 0 {
 		return nil, errors.New("no matches")
@@ -182,25 +183,25 @@ func (s *Searcher) walkFunc(path string, info os.FileInfo, err error) error {
 		fmt.Println("upload file: ", info.Name())
 		go func() {
 			defer wg.Done()
-			var imagesData [][]byte
+			var imagesData []image
 			counter := 0
 
 			for counter <= s.maxRetryTimes {
 				time.Sleep(time.Microsecond * time.Duration(rand.Int31n(20)))
 				counter++
 				fmt.Printf("第 %d 次尝试上传图片 %s \n", counter, info.Name())
-				req, er := s.buildRequest(path)
-				if er != nil {
+				req, err := s.buildRequest(path)
+				if err != nil {
 					s.log.Println("build request error")
 					return
 				}
-				html, er := s.SendRequest(req)
-				if er != nil {
-					s.log.Println(er)
+				html, err := s.SendRequest(req)
+				if err != nil {
+					s.log.Println(err)
 					continue
 				}
-				imagesData, er = s.getBase64ImageData(html)
-				if er != nil {
+				imagesData, err = s.getBase64ImageData(html)
+				if err != nil {
 					continue
 				}
 				if len(imagesData) != 0 {
@@ -214,7 +215,7 @@ func (s *Searcher) walkFunc(path string, info os.FileInfo, err error) error {
 
 			fmt.Printf("图片 %s 上传成功\n", info.Name())
 
-			for i, v := range imagesData {
+			for i, img := range imagesData {
 				filename := filepath.Base(info.Name())
 				// 文件所在目录
 				dir := filepath.Join(filepath.Dir(path), strings.TrimSuffix(filename, filepath.Ext(filename)))
@@ -227,7 +228,7 @@ func (s *Searcher) walkFunc(path string, info os.FileInfo, err error) error {
 					}
 				}
 				wg.Add(1)
-				go s.decodeBase64(v, filepath.Join(dir, fmt.Sprintf("%d.jpeg", i+1)), &wg)
+				go s.decodeBase64(img.data, filepath.Join(dir, fmt.Sprintf("%d.%s", i+1, img.typ)), &wg)
 			}
 		}()
 	}
